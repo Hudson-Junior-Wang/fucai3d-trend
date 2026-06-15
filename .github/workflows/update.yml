@@ -1,0 +1,45 @@
+name: 更新福彩3D数据
+
+# 北京时间每天 23:12 / 00:05 / 00:30 各抓一次（UTC 比北京时间晚 8 小时）
+# 多抓几次，防止开奖站点更新不及时。GitHub 定时任务可能有几分钟延迟，属正常现象。
+on:
+  schedule:
+    - cron: "12 15 * * *"   # 北京 23:12
+    - cron: "5 16 * * *"    # 北京 00:05（次日）
+    - cron: "30 16 * * *"   # 北京 00:30（次日）
+  workflow_dispatch: {}      # 允许在 Actions 页面手动点“Run workflow”
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-draws
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 抓取并更新数据
+        run: python scripts/update_draws.py
+
+      - name: 有变化则提交
+        run: |
+          if [ -n "$(git status --porcelain data/draws.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/draws.json
+            git commit -m "chore: 自动更新福彩3D数据 [skip ci]"
+            git push
+            echo "已提交更新。"
+          else
+            echo "数据无变化，跳过提交。"
+          fi
