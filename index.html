@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#c62828" />
+  <title>福彩3D走势图</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title-row">
+      <h1>福彩3D走势图</h1>
+      <span class="latest" id="latest">--</span>
+    </div>
+    <div class="ctrl-row">
+      <label class="sel">
+        期数
+        <select id="periodSelect">
+          <option value="30">近30期</option>
+          <option value="50">近50期</option>
+          <option value="100">近100期</option>
+          <option value="0">全部</option>
+        </select>
+      </label>
+      <button class="btn" id="btnAdd">新增</button>
+      <button class="btn" id="btnMore">更多 ▾</button>
+    </div>
+    <div class="more-menu" id="moreMenu" hidden>
+      <button class="menu-item" data-act="import">导入 CSV</button>
+      <button class="menu-item" data-act="export">导出 CSV</button>
+      <button class="menu-item" data-act="online">尝试在线更新</button>
+      <button class="menu-item" data-act="status">数据状态</button>
+      <button class="menu-item danger" data-act="reset">清除我新增的数据</button>
+    </div>
+  </header>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab active" data-view="bai">百位</button>
+    <button class="tab" data-view="shi">十位</button>
+    <button class="tab" data-view="ge">个位</button>
+    <button class="tab" data-view="sum">和值</button>
+    <button class="tab" data-view="span">跨度</button>
+    <button class="tab" data-view="shape">形态</button>
+  </nav>
+
+  <main class="board">
+    <div class="table-scroll" id="tableScroll">
+      <table class="trend" id="trendTable"></table>
+    </div>
+  </main>
+
+  <p class="hint" id="hint"></p>
+
+  <!-- 新增开奖弹窗 -->
+  <div class="modal" id="addModal" hidden>
+    <div class="modal-card">
+      <h2>新增一期开奖</h2>
+      <label>期号 <input id="inIssue" inputmode="numeric" placeholder="如 2026159" /></label>
+      <label>日期 <input id="inDate" type="date" /></label>
+      <label>开奖号 (3位)
+        <input id="inNum" inputmode="numeric" maxlength="3" placeholder="如 487" />
+      </label>
+      <div class="modal-actions">
+        <button class="btn ghost" id="addCancel">取消</button>
+        <button class="btn primary" id="addSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
+
+  <script src="app.js"></script>
+</body>
+</html>
