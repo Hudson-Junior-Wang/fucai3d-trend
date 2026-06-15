@@ -28,6 +28,13 @@ function shapeOf(d) {
   if (a === b || b === c || a === c) return { k: 'z3x', t: '组三' };
   return { k: 'z6', t: '组六' };
 }
+function acOf(d) {
+  const s = new Set();
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) { const x = Math.abs(d.n[i] - d.n[j]); if (x) s.add(x); }
+  return Math.max(0, s.size - 2);
+}
+const ratio = (d, pred) => { const k = d.n.filter(pred).length; return `${k}:${3 - k}`; };
+const roadRatio = (d) => { const c = [0, 0, 0]; d.n.forEach((v) => c[road(v)]++); return c.join(':'); };
 
 function toast(msg) {
   let el = $('#toast');
@@ -55,13 +62,16 @@ async function loadBase() {
 }
 function visible() { const a = state.draws; return state.period > 0 ? a.slice(Math.max(0, a.length - state.period)) : a; }
 
-/* ---------- 通用：球轨道（区） ---------- */
-/* regions: [{label,count,labels?,get(draw)->[vals],line,color,ballCls,tint}] */
-function renderRegions(rows, regions) {
+/* ---------- 通用：球轨道（区）+ 统计 + 右侧汇总列 ---------- */
+/* regions: [{label,count,labels?,get(draw)->[vals],line,color,ballCls}]
+   summary: [{label,get(draw)->text,bg}] 右侧附加列（和值/跨度/AC等） */
+function renderRegions(rows, regions, summary) {
   regionMeta = [];
-  const hasGroup = regions.length > 1;
-  const omit = regions.map((rg) => new Array(rg.count).fill(0));
-  const freq = regions.map((rg) => new Array(rg.count).fill(0));
+  summary = summary || [];
+  const hasGroup = regions.length > 1 || summary.length > 0;
+  const N = rows.length;
+  const mk = () => regions.map((rg) => new Array(rg.count).fill(0));
+  const cur = mk(), freq = mk(), maxMiss = mk(), maxRun = mk(), hitRun = mk(), totMiss = mk();
 
   let body = '';
   rows.forEach((d) => {
@@ -72,23 +82,26 @@ function renderRegions(rows, regions) {
       const vals = rg.get(d);
       for (let c = 0; c < rg.count; c++) {
         if (vals.includes(c)) {
-          omit[ri][c] = 0; freq[ri][c]++;
+          cur[ri][c] = 0; freq[ri][c]++; hitRun[ri][c]++;
+          if (hitRun[ri][c] > maxRun[ri][c]) maxRun[ri][c] = hitRun[ri][c];
           body += `<td class="ball hit v ${rg.ballCls || ''}" data-r="${ri}"><span class="b">${rg.labels ? rg.labels[c] : c}</span></td>`;
         } else {
-          omit[ri][c]++;
-          body += `<td class="ball v">${omit[ri][c]}</td>`;
+          cur[ri][c]++; totMiss[ri][c]++; hitRun[ri][c] = 0;
+          if (cur[ri][c] > maxMiss[ri][c]) maxMiss[ri][c] = cur[ri][c];
+          body += `<td class="ball v">${cur[ri][c]}</td>`;
         }
       }
     });
+    summary.forEach((s) => { body += `<td class="v" style="background:${s.bg || '#ffe9ee'};color:#7a1f33;font-weight:600;font-size:12px;padding:0 4px">${s.get(d)}</td>`; });
     body += '</tr>';
   });
 
   // 表头
   let head = '<thead>';
   if (hasGroup) {
-    head += '<tr>';
-    head += '<th rowspan="2" class="issue-cell">期号</th><th rowspan="2" class="num-cell">开奖</th>';
+    head += '<tr><th rowspan="2" class="issue-cell">期号</th><th rowspan="2" class="num-cell">开奖</th>';
     regions.forEach((rg) => { head += `<th class="grp" colspan="${rg.count}" style="background:${rg.color || 'var(--head)'}">${rg.label}</th>`; });
+    summary.forEach((s) => { head += `<th rowspan="2" style="background:${s.bg || '#f7a8bb'};color:#5a1226;min-width:30px">${s.label}</th>`; });
     head += '</tr><tr>';
     regions.forEach((rg) => { for (let c = 0; c < rg.count; c++) head += `<th>${rg.labels ? rg.labels[c] : c}</th>`; });
     head += '</tr>';
@@ -100,18 +113,27 @@ function renderRegions(rows, regions) {
   }
   head += '</thead>';
 
-  // 页脚：当前遗漏 / 出现
-  const cells = (arr2, cls) => {
-    let s = `<tr><td class="lbl issue-cell">${cls === 'cur' ? '遗漏' : '出现'}</td><td class="lbl num-cell"></td>`;
+  // 页脚：完整统计
+  const statRow = (label, fn, hot) => {
+    let s = `<tr><td class="lbl issue-cell">${label}</td><td class="lbl num-cell"></td>`;
     regions.forEach((rg, ri) => {
-      const arr = arr2[ri]; const mx = Math.max(...arr);
-      for (let c = 0; c < rg.count; c++) s += `<td class="${arr[c] === mx && mx > 0 ? 'hot' : ''}">${arr[c]}</td>`;
+      const vals = []; for (let c = 0; c < rg.count; c++) vals.push(fn(ri, c));
+      const mx = Math.max(...vals);
+      for (let c = 0; c < rg.count; c++) s += `<td class="${hot && vals[c] === mx && mx > 0 ? 'hot' : ''}">${vals[c]}</td>`;
     });
+    summary.forEach(() => { s += '<td></td>'; });
     return s + '</tr>';
   };
-  const foot = `<tfoot>${cells(omit, 'cur')}${cells(freq, 'freq')}</tfoot>`;
+  const avg = (ri, c) => (freq[ri][c] ? Math.round(N / freq[ri][c]) : N);
+  const foot = '<tfoot>'
+    + statRow('出现', (ri, c) => freq[ri][c], true)
+    + statRow('平均遗漏', avg, false)
+    + statRow('最大遗漏', (ri, c) => maxMiss[ri][c], true)
+    + statRow('最大连出', (ri, c) => maxRun[ri][c], true)
+    + statRow('当前遗漏', (ri, c) => cur[ri][c], true)
+    + '</tfoot>';
 
-  paint(`<table class="trend ${regions.some((r) => r.tint) ? '' : ''}">${head}<tbody>${body}</tbody>${foot}</table>`);
+  paint(`<table class="trend">${head}<tbody>${body}</tbody>${foot}</table>`);
   regionMeta = regions.map((rg, i) => ({ i, line: rg.line, color: rg.color || '#e53935' }));
   requestAnimationFrame(drawLines);
 }
@@ -158,10 +180,17 @@ const tg = (cls, t) => `<span class="tag ${cls}">${t}</span>`;
 /* ---------- 各视图 ---------- */
 const VIEWS = {
   base: (rows) => renderRegions(rows, [
-    { label: '百位', count: 10, get: (d) => [d.n[0]], line: true, color: 'var(--line-bai)', ballCls: '' },
-    { label: '十位', count: 10, get: (d) => [d.n[1]], line: true, color: 'var(--line-shi)', ballCls: 'b-shi' },
-    { label: '个位', count: 10, get: (d) => [d.n[2]], line: true, color: 'var(--line-ge)', ballCls: 'b-ge' },
-  ].map((r) => ({ ...r, color: { 百位: '#e53935', 十位: '#1e88e5', 个位: '#43a047' }[r.label] }))),
+    { label: '百位', count: 10, get: (d) => [d.n[0]], line: true, color: '#e53935', ballCls: '' },
+    { label: '十位', count: 10, get: (d) => [d.n[1]], line: true, color: '#1e88e5', ballCls: 'b-shi' },
+    { label: '个位', count: 10, get: (d) => [d.n[2]], line: true, color: '#43a047', ballCls: 'b-ge' },
+  ], [
+    { label: '和值', get: (d) => sumOf(d), bg: '#ffb6c1' },
+    { label: '跨度', get: (d) => spanOf(d), bg: '#ffc8a8' },
+    { label: '奇偶', get: (d) => ratio(d, (v) => v % 2), bg: '#e3d1f0' },
+    { label: '大小', get: (d) => ratio(d, (v) => v >= 5), bg: '#cfe8c9' },
+    { label: '012路', get: (d) => roadRatio(d), bg: '#cfe5f7' },
+    { label: 'AC', get: (d) => acOf(d), bg: '#f0e2b8' },
+  ]),
 
   numDistri: (rows) => renderRegions(rows, [
     { label: '号码分布', count: 10, get: (d) => d.n, line: false, color: '#e53935' },
