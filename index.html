@@ -1,54 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#78c4d7" />
-  <title>福彩3D走势图</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>福彩3D走势图</title>
+<script>
+  location.replace('html/m_trend.html?lotteryCategory=Magic3_Fc3D&qiShu=30&notShowMenu=1&title=' + encodeURIComponent('福彩3D走势图'));
+</script>
 </head>
-<body>
-  <div class="menubar">
-    <select id="qiShu">
-      <option value="30">30期</option>
-      <option value="50">50期</option>
-      <option value="60">60期</option>
-      <option value="90">90期</option>
-      <option value="100">100期</option>
-      <option value="120">120期</option>
-      <option value="150">150期</option>
-      <option value="200">200期</option>
-      <option value="300">300期</option>
-    </select>
-    <span class="pill" id="canShu">参数说明</span>
-    <span class="latest" id="latest">--</span>
-  </div>
-
-  <div class="trend-area" id="trendArea">
-    <div class="scroll-inner" id="scrollInner"></div>
-    <div class="scrollbtns">
-      <span id="toTop">顶</span>
-      <span id="toBottom">底</span>
-    </div>
-  </div>
-
-  <div class="indexs" id="indexs"></div>
-
-  <!-- 新增弹窗 -->
-  <div class="modal" id="addModal" hidden>
-    <div class="modal-card">
-      <h2>新增一期开奖</h2>
-      <label>期号 <input id="inIssue" inputmode="numeric" placeholder="如 2026159" /></label>
-      <label>日期 <input id="inDate" type="date" /></label>
-      <label>开奖号 (3位) <input id="inNum" inputmode="numeric" maxlength="3" placeholder="如 487" /></label>
-      <div class="modal-actions">
-        <button id="addCancel">取消</button>
-        <button class="primary" id="addSave">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
-  <script src="app.js"></script>
-</body>
+<body></body>
 </html>

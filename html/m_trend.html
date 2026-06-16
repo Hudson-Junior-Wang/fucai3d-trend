@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>走势图分析</title>
+	<link type="text/css" rel="stylesheet" href="../css/myCss.css"></link>
+	 <script type="text/javascript" language="javascript" src="../js/lib/json2.js"></script>
+	<script type="text/javascript" src="../js/lib/jquery-1.11.0.min.js"></script>
+	<script type="text/javascript" src="../js/lib/clipboard.min.js"></script>
+	<script type="text/javascript" src="../js/sumaLib/util.js"></script>
+	<script type="text/javascript" src="../js/sumaLib/lotUtil.js"></script>
+	<script type="text/javascript" src="../js/constants/constants.js"></script>
+    <script type="text/javascript" language="javascript" src="../js/myJs0.js"></script>
+    <script type="text/javascript" src="../js/localData.js"></script>
+	<style type="text/css">
+		td{
+			 table-layout: fixed;
+			 word-break: break-all;
+			 border-collapse: collapse
+		}
+	</style>
+</head>
+<body id="_body" style="padding:0px;margin:0px;background:white;">
+	<div id="menuBar" style="text-align:center;padding:5px;">
+		<select id='qiShu' style='border:solid 1px lightgray;padding:1px 2px;'>
+			<option value='30'>30期</option>
+			<option value='50'>50期</option>
+			<option value='60'>60期</option>
+			<option value='90'>90期</option>
+			<option value='100'>100期</option>
+			<option value='120'>120期</option>
+			<option value='150'>150期</option>
+			<option value='200'>200期</option>
+			<option value='300'>300期</option>
+		</select>
+		<span id='canShu' style='border:solid 1px lightgray;padding:1px 2px;'>参数说明</span>
+	</div>
+    <div id="trendArea" style="-webkit-overflow-scrolling:touch;overflow-x:scroll;">
+    </div>
+
+    <div id="indexs" style="position:fixed;width:100%;bottom:0px;border-top:solid 1px gray;text-align:center;z-index:100;">
+
+    </div>
+    <script type="text/javascript">
+    	var href=parseHrefToObj(window.location.href);
+    	$("title").text(decodeURI(href.title));
+    	$("#trendArea").css({width:document.body.clientWidth+"px"});
+    	setParam(href.lotteryCategory);
+    	var indexData=null;
+    	if("Magic3_Fc3D"==href.lotteryCategory||"Magic3_TcP3"==href.lotteryCategory||href.lotteryCategory.indexOf("star3")!=-1){
+    		indexData=[{name:"base",title:"综合"},{name:"numDistri",title:"号码分布"},{name:"pos0",title:"百位"},{name:"pos1",title:"十位"},{name:"pos2",title:"个位"},{name:"heZhi",title:"和值"},
+    		           {name:"span",title:"跨度"},{name:"bigSmall",title:"大小"},{name:"oddEven",title:"奇偶"},{name:"zhiHe",title:"质合"},{name:"luShuRate",title:"012路比"},{name:"luShuD",title:"012路"},{name:"threeAreaRate",title:"三区比"},{name:"threeAreaD",title:"三区定位"},{name:"w5",title:"万能5码"},{name:"w6",title:"万能6码"},{name:"w7",title:"万能7码"},{name:"moreIndexs",title:"更多"}
+    		      ];
+    	}
+    	$("#qiShu").val(href.qiShu?href.qiShu:"30");
+    	$("#qiShu").change(function(){
+			window.location.replace("m_trend.html?lotteryCategory="+href.lotteryCategory+(href.lotCategoryId?"&lotCategoryId="+href.lotCategoryId:"")+"&qiShu="+$(this).val()+"&notShowMenu=1&title="+$("title").text());
+		});
+
+    	$("#canShu").click(function(){
+			showParam(lotteryCategory);
+		});
+
+    	function loadDataAnCreateTrend(indexName){
+    		var p={};
+			p.index=indexName;
+			p.lotteryCategory=href.lotteryCategory;
+			p.lotCategoryId=href.lotCategoryId;
+	    	p.rowNumber=href.qiShu;
+	    	p.rowNumber=(p.rowNumber==null?30:p.rowNumber);
+			var view=contentCache[p.index];
+			$("#trendArea").children().hide();
+			if(view==undefined||view==null){
+				HttpUtils.ajaxHttpGet("../lot/getTrend.action",p,function(data,textStatus,jqXHR){
+					data.index=p.index;
+					data.lotteryCategory=p.lotteryCategory;
+			    	showTable(data);
+			    });
+			}else{
+				view.show();
+			}
+    	}
+
+    	var indexsTable=$("<table style='width:100%' cellspacing='1' cellpadding='0' border='0'></table>");
+    	var rowNum=(indexData.length%5==0?indexData.length/5:parseInt(indexData.length/5)+1);
+    	var colNum=6;
+    	var w=1/colNum;
+    	for(var i=0;i<rowNum;i++){
+    		var tr=$("<tr></tr>");
+    		for(var j=0;j<colNum;j++){
+    			var index=i*colNum+j;
+    			if(index>=indexData.length){
+    				break;
+    			}
+    			var item=indexData[index];
+    			var span=$("<span isPressed='false' name='"+item.name+"' style='display:inline-block;background:red;color:yellow;padding:2px 0px;margin-left:1px;margin-top:1px;border-radius:5px;font-size:12px;width:100%;text-align:center;'>"+item.title+"</span>");
+    			span.click(function(){
+    				$("#indexs").find("span").attr("isPressed","false").css({background:"red",color:"yellow"});
+    				$(this).attr("isPressed","true").css({background:"green",color:"white"});
+    				var indexName=$(this).attr("name");
+    				if(indexName=="moreIndexs"){
+    					var moreIndexs=$("<div id='moreIndexs' style='width:60px;background:lightgray;position:fixed;bottom:30px;right:0px;z-index:999999;text-align:center;'><span name='xingTai' style='border-bottom:solid 1px white;padding:5px 5px;font-size:12px;'>形态</span><br/><span name='other' style='border-bottom:solid 1px white;padding:5px 5px;font-size:12px;'>其它</span><br/><span name='cancel' style='padding:5px 5px;font-size:12px;'>取消</span></div>");
+    					$("body").append(moreIndexs);
+    					moreIndexs.find("span").click(function(){
+    						$(this).attr("isPressed","true").css({color:"red"}).siblings().attr("isPressed","false").css({color:"none"});
+    						var name=$(this).attr("name");
+    						if(name=="cancel"){
+    							$("#moreIndexs").remove();
+    						}else{
+    							loadDataAnCreateTrend(name);
+    						}
+    					});
+    				}else{
+    					loadDataAnCreateTrend(indexName);
+    				}
+    			});
+    			var td=$("<td style='width:"+w+"%'></td>").append(span);
+    			tr.append(td);
+    		}
+    		indexsTable.append(tr);
+    	}
+    	$("#indexs").append(indexsTable);
+		$("#indexs").find("span").eq(0).click();
+
+    	function scrollTo(){
+    		var scrollArea=$("<div style='position:fixed;bottom:140px;right:0px;foot-size:13px;'></div>");
+    		var scrollToTop=$("<span style='display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;border-radius:20px;border:solid 1px lightgray;cursor:default;'>顶</span>");
+    		scrollArea.append(scrollToTop).append("<br/>");
+    		var scrollToBottom=$("<span style='display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;border-radius:20px;border:solid 1px lightgray;cursor:default;'>底</span>");
+    		scrollArea.append(scrollToBottom);
+    		$("body").append(scrollArea);
+    		scrollToTop.click(function(){
+    			var curIndex=$("#indexs").find("span[isPressed='true']").eq(0).attr("name");
+    			if(curIndex=="moreIndexs"){
+    				curIndex=$("#moreIndexs").find("span[isPressed='true']").eq(0).attr("name");
+    				var div=$("div[name='"+curIndex+"_dataTableDiv']").eq(0);
+        			div.animate({scrollTop:0},'quick');
+    			}else{
+    				var div=$("div[name='"+curIndex+"_dataTableDiv']").eq(0);
+        			div.animate({scrollTop:0},'quick');
+    			}
+    		});
+    		scrollToBottom.click(function(){
+    			var curIndex=$("#indexs").find("span[isPressed='true']").eq(0).attr("name");
+    			if(curIndex=="moreIndexs"){
+    				curIndex=$("#moreIndexs").find("span[isPressed='true']").eq(0).attr("name");
+    				var div=$("div[name='"+curIndex+"_dataTableDiv']").eq(0);
+        			div.animate({scrollTop: div.find("table").eq(0).height()},300);
+    			}else{
+    				var div=$("div[name='"+curIndex+"_dataTableDiv']").eq(0);
+        			div.animate({scrollTop: div.find("table").eq(0).height()},300);
+    			}
+    		});
+    	}
+    	scrollTo();
+    </script>
+</body>
+</html>

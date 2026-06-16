@@ -1,0 +1,153 @@
+th.firstLine-cell{
+	padding:0px;
+    background:#78c4d7;
+    text-align:center;
+    /*border-left:solid 1px white;
+    border-bottom:solid 1px white;
+    border-top:solid 1px white;*/
+    border:solid 1px white;
+    word-break:break-all;
+    font-size:13px;
+    font-weight:normal;
+    vertical-align:center;
+}
+th.middle-cell{
+	padding:0px;
+    background:#78c4d7;
+    text-align:center;
+  /*  border-left:solid 1px white;
+    border-bottom:solid 1px white;*/
+    border:solid 1px white;
+    word-break:break-all;
+    font-size:13px;
+    font-weight:normal;
+    vertical-align:center;
+}
+.bbb{
+	padding:0px;
+	text-align:center;
+	display:inline-block;
+	width:16px;
+	height:16px;
+	line-height:16px;
+	background:red;
+	color:white;
+	border-radius:8px;
+}
+.blue{
+	padding:0px;
+	text-align:center;
+	display:inline-block;
+	width:16px;
+	height:16px;
+	line-height:16px;
+	background:blue;
+	color:white;
+	border-radius:8px;
+}
+.aaa{
+    position:absolute;
+}
+td.middle-cell{
+	padding:0px;
+    background:#d3e8f7;
+    text-align:center;
+ /*   border-left:solid 1px white;
+    border-bottom:solid 1px white;*/
+    border:solid 1px white;
+    word-break:break-all;
+    font-size:12px;
+    vertical-align:center;
+}
+
+td.ballCss {
+    background:#98FB98;
+}
+td.pos0Css {
+    background:#98FB98;
+}
+td.pos1Css {
+    background:#AF8AE2;
+}
+td.pos2Css {
+    background:#F5E8E8;
+}
+td.pos3Css {
+    background:#87CEEB;
+}
+td.pos4Css {
+    background:#D2B48C;
+}
+td.pos5Css {
+    background:#48CD2B;
+}
+td.pos6Css {
+    background:#4D8C2B;
+}
+td.averageCss {
+    background:#00CED1;
+}
+td.acValueCss {
+    background:#DAA520;
+}
+td.differNumCss {
+    background:#F08080;
+}
+td.lianHao {
+    background:#FFB6C1;
+}
+td.heZhi {
+    padding:0px;
+    background:#FFB6C1;
+}
+td.span {
+    padding:0px;
+    background:#FFB6C1;
+}
+td.linHaoLag {
+    padding:0px;
+    background:#ffa07a;
+}
+td.sumTail {
+    padding:0px;
+    background:#ffa07a;
+}
+td.letouSumTail {
+    padding:0px;
+    background:#ffa07a;
+}
+td.bigSmallRate {
+    padding:0px;
+    background:#FFB6C1;
+}
+td.bigSmall {
+    padding:0px;
+    background:#ffa07a;
+}
+td.luShu {
+    background:#ffa07a;
+}
+td.erMa {
+    background:#DD8EE6;
+}
+td.erWeiCha {
+    background:#D9D971;
+}
+td.wuXingNum {
+    background:#FFB6C1;
+}
+th.newLotteryCell{
+    padding-top:5px;
+    padding-bottom:5px;
+    text-align:center;
+    color:gold;
+}
+td.newLotteryCell{
+    padding:5px 3px;
+    text-align:center;
+}
+li.remarks {
+    font-size:14px;
+    line-height:20px;
+    margin-left:40px;
+}
