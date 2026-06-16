@@ -1,5 +1,4 @@
-/* 本地数据适配器：用我自己的可靠数据(../data/draws.json)驱动 zjt 原版渲染引擎。
- * 覆盖 HttpUtils.ajaxHttpGet 对 getTrend.action 的请求，按各 index 的字段(含父子嵌套)生成 items。*/
+/* 本地数据适配器：用 ../data/draws.json 驱动 zjt 原版渲染引擎，逐项对齐原站。*/
 (function () {
   'use strict';
   var PRIMES = { 1: 1, 2: 1, 3: 1, 5: 1, 7: 1 };
@@ -9,229 +8,194 @@
     w7: ["0123489", "0345679", "0156789", "1234567", "0245678", "2356789"]
   };
   var drawsPromise = fetch('../data/draws.json', { cache: 'no-store' })
-    .then(function (r) { return r.json(); })
-    .then(function (j) { return j.draws || []; })
-    .catch(function () { return []; });
+    .then(function (r) { return r.json(); }).then(function (j) { return j.draws || []; }).catch(function () { return []; });
 
   function road(v) { return v % 3; }
   function zoneIdx(v) { return v <= 3 ? 0 : v <= 6 ? 1 : 2; }
-  function ball(block, txt) { return "<span" + (block ? " block='" + block + "'" : "") + " class='bbb'>" + txt + "</span>"; }
-  function ratioCounts(n, pred) { var c = [0, 0, 0]; n.forEach(function (v) { c[pred(v)]++; }); return c; }
-  function shapeOf(n) {
-    if (n[0] === n[1] && n[1] === n[2]) return '豹子';
-    if (n[0] === n[1] || n[1] === n[2] || n[0] === n[2]) return '组三';
-    return '组六';
-  }
-  function sameNumOf(n) {
-    if (n[0] === n[1] && n[1] === n[2]) return '' + n[0] + n[0] + n[0];
-    if (n[0] === n[1] || n[1] === n[2] || n[0] === n[2]) return '' + (n[0] === n[1] ? n[0] : n[1] === n[2] ? n[1] : n[0]) + (n[0] === n[1] ? n[0] : n[1] === n[2] ? n[1] : n[0]);
-    return '';
-  }
-  function acOf(n) { var s = {}; for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) { var d = Math.abs(n[i] - n[j]); if (d) s[d] = 1; } return Math.max(0, Object.keys(s).length - 2); }
+  function q(d) { return d.issue.slice(-3); }
   function bs(v) { return v >= 5 ? '大' : '小'; }
   function oe(v) { return v % 2 ? '奇' : '偶'; }
   function zh(v) { return PRIMES[v] ? '质' : '合'; }
-  function predOf(idx) { return idx === 'bigSmall' ? function (v) { return v >= 5 ? 1 : 0; } : idx === 'oddEven' ? function (v) { return v % 2; } : function (v) { return PRIMES[v] ? 1 : 0; }; }
-  function charOf(idx) { return idx === 'bigSmall' ? bs : idx === 'oddEven' ? oe : zh; }
+  function predOf(i) { return i === 'bigSmall' ? function (v) { return v >= 5 ? 1 : 0; } : i === 'oddEven' ? function (v) { return v % 2; } : function (v) { return PRIMES[v] ? 1 : 0; }; }
+  function charOf(i) { return i === 'bigSmall' ? bs : i === 'oddEven' ? oe : zh; }
+  function shapeOf(n) { if (n[0] === n[1] && n[1] === n[2]) return '豹子'; if (n[0] === n[1] || n[1] === n[2] || n[0] === n[2]) return '组三'; return '组六'; }
+  function sameNumOf(n) { if (n[0] === n[1] && n[1] === n[2]) return '' + n[0]; if (n[0] === n[1] || n[0] === n[2]) return '' + n[0]; if (n[1] === n[2]) return '' + n[1]; return '-'; }
+  function lianOf(n) { var s = n.slice().sort(function (a, b) { return a - b; }); return (s[1] - s[0] === 1 && s[2] - s[1] === 1) ? 'lian3' : (s[1] - s[0] === 1 || s[2] - s[1] === 1) ? 'lian2' : 'lian0'; }
 
-  /* 通用嵌套页脚：扫描 items 里的命中标记(球/●)算统计，输出 6 行嵌套页脚 */
-  function isHit(v) { v = String(v); return v.indexOf('bbb') !== -1 || v.indexOf('●') !== -1; }
-  function computeFoot(items, groups, n) {
-    var allCols = [];
-    groups.forEach(function (g) { g.cols.forEach(function (f) { allCols.push({ g: g, f: f }); }); });
-    var st = {}; allCols.forEach(function (x) { st[x.g.parentKey + '|' + x.f] = { freq: 0, cur: 0, maxMiss: 0, maxRun: 0, run: 0 }; });
-    items.forEach(function (it) {
-      allCols.forEach(function (x) {
-        var s = st[x.g.parentKey + '|' + x.f];
-        var cell = x.g.parentKey ? (it[x.g.parentKey] || {})[x.f] : it[x.f];
-        if (isHit(cell)) { s.freq++; s.cur = 0; s.run++; if (s.run > s.maxRun) s.maxRun = s.run; }
-        else { s.cur++; s.run = 0; if (s.cur > s.maxMiss) s.maxMiss = s.cur; }
-      });
-    });
+  // 标记：round=圆/方，bg=底色，block=连线分组
+  function mk(block, txt, round, bg) {
+    return "<span" + (block ? " block='" + block + "'" : "") + " style=\"display:inline-block;min-width:16px;height:16px;line-height:16px;text-align:center;color:#fff;background:" + bg + ";border-radius:" + (round ? "50%" : "3px") + ";padding:0 1px;font-size:11px;\">" + txt + "</span>";
+  }
+
+  /* 页脚：理论值用 000-999 全枚举 */
+  function makeFooter(rows, groups, hitFn, N) {
+    var cols = []; groups.forEach(function (g) { g.cols.forEach(function (f) { cols.push(f); }); });
+    var act = {}; cols.forEach(function (f) { act[f] = { freq: 0, run: 0, max: 0, cur: 0 }; });
+    rows.forEach(function (d) { var hs = {}; hitFn(d.n).forEach(function (x) { hs[x] = 1; }); cols.forEach(function (f) { var a = act[f]; if (hs[f]) { a.freq++; a.run++; if (a.run > a.max) a.max = a.run; a.cur = 0; } else { a.run = 0; a.cur++; } }); });
+    var theo = {}; cols.forEach(function (f) { theo[f] = 0; });
+    for (var b = 0; b < 10; b++) for (var s = 0; s < 10; s++) for (var g = 0; g < 10; g++) { hitFn([b, s, g]).forEach(function (f) { if (theo[f] !== undefined) theo[f]++; }); }
     var defs = [
-      ['出现', function (s) { return s.freq; }],
-      ['平均遗漏', function (s) { return s.freq ? Math.round(n / s.freq) : n; }],
-      ['最大遗漏', function (s) { return s.maxMiss; }],
-      ['最大连出', function (s) { return s.maxRun; }],
-      ['当前遗漏', function (s) { return s.cur; }],
-      ['理论', function (s, L) { return Math.round(n / L); }]
+      ['理论出现概率(%)', function (f) { return (theo[f] / 1000 * 100).toFixed(1); }],
+      [N + '期理论出现(期)', function (f) { return (N * theo[f] / 1000).toFixed(1); }],
+      [N + '期实际出现(期)', function (f) { return act[f].freq; }],
+      [N + '期最大连出(期)', function (f) { return act[f].max; }],
+      ['理论遗漏(期)', function (f) { return theo[f] ? Math.round((1000 - theo[f]) / theo[f]) : ''; }],
+      [N + '期当前遗漏(期)', function (f) { return act[f].cur; }]
     ];
     return defs.map(function (def) {
       var row = { name: def[0] };
-      groups.forEach(function (g) {
-        var obj = {};
-        g.cols.forEach(function (f) { obj[f] = def[1](st[g.parentKey + '|' + f], g.cols.length); });
-        if (g.parentKey) row[g.parentKey] = obj; else g.cols.forEach(function (f) { row[f] = def[1](st['|' + f], g.cols.length); });
-      });
+      groups.forEach(function (gp) { var obj = {}; gp.cols.forEach(function (f) { obj[f] = def[1](f); }); if (gp.parentKey) row[gp.parentKey] = obj; else gp.cols.forEach(function (f) { row[f] = def[1](f); }); });
       return row;
     });
   }
 
-  /* 位置 0-9 */
-  function gridPos(rows, P) {
-    var miss = new Array(10).fill(0);
+  /* 位置 0-9（红圆） */
+  function gridPos(rows, P, N) {
     var items = rows.map(function (d) {
-      var pos = {};
-      for (var c = 0; c < 10; c++) { var hit = c === d.n[P]; if (hit) { pos['pos' + P + c] = ball('block0', c); miss[c] = 0; } else { miss[c]++; pos['pos' + P + c] = miss[c]; } }
-      var o = { qiHao: d.issue, lottery: d.n.join(' '), weiLot: d.n[P] };
-      o['pos' + P] = pos;
-      o.character = { bigSmall: d.n.map(bs).join(' '), oddEven: d.n.map(oe).join(' '), zhiHe: d.n.map(zh).join(' '), luShu: d.n.map(road).join(' '), threeArea: d.n.map(function (v) { return zoneIdx(v) + 1; }).join(' ') };
-      return o;
-    });
+      var pos = {}; for (var c = 0; c < 10; c++) pos['pos' + P + c] = c === d.n[P] ? mk('block0', c, true, '#e60000') : '';
+      return { qiHao: q(d), lottery: d.n.join(' '), weiLot: d.n[P], pos: pos, character: { bigSmall: d.n.map(bs).join(''), oddEven: d.n.map(oe).join(''), zhiHe: d.n.map(zh).join(''), luShu: d.n.map(road).join(''), threeArea: d.n.map(function (v) { return zoneIdx(v) + 1; }).join('') }, _p: P };
+    }).map(function (o) { var x = { qiHao: o.qiHao, lottery: o.lottery, weiLot: o.weiLot, character: o.character }; x['pos' + o._p] = o.pos; return x; });
     var cols = []; for (var c = 0; c < 10; c++) cols.push('pos' + P + c);
-    return { items: items.concat(computeFoot(items, [{ parentKey: 'pos' + P, cols: cols }], rows.length)) };
+    return { items: items.concat(makeFooter(rows, [{ parentKey: 'pos' + P, cols: cols }], function (n) { return ['pos' + P + n[P]]; }, N)) };
   }
 
-  /* 号码分布 */
-  function gridNumDistri(rows) {
-    var miss = new Array(10).fill(0);
+  /* 号码分布（红圆，非命中空白） */
+  function gridNumDistri(rows, N) {
     var items = rows.map(function (d) {
-      var cell = {};
-      for (var c = 0; c < 10; c++) { var hit = d.n.indexOf(c) !== -1; if (hit) { cell['pos' + c] = ball('', c); miss[c] = 0; } else { miss[c]++; cell['pos' + c] = miss[c]; } }
-      return { qiHao: d.issue, lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) },
-        area0: { pos0: cell.pos0, pos1: cell.pos1, pos2: cell.pos2, pos3: cell.pos3 }, area1: { pos4: cell.pos4, pos5: cell.pos5, pos6: cell.pos6 }, area2: { pos7: cell.pos7, pos8: cell.pos8, pos9: cell.pos9 } };
+      var cell = {}; for (var c = 0; c < 10; c++) cell['pos' + c] = d.n.indexOf(c) !== -1 ? mk('', c, true, '#e60000') : '';
+      return { qiHao: q(d), lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) }, area0: { pos0: cell.pos0, pos1: cell.pos1, pos2: cell.pos2, pos3: cell.pos3 }, area1: { pos4: cell.pos4, pos5: cell.pos5, pos6: cell.pos6 }, area2: { pos7: cell.pos7, pos8: cell.pos8, pos9: cell.pos9 } };
     });
-    return { items: items.concat(computeFoot(items, [{ parentKey: 'area0', cols: ['pos0', 'pos1', 'pos2', 'pos3'] }, { parentKey: 'area1', cols: ['pos4', 'pos5', 'pos6'] }, { parentKey: 'area2', cols: ['pos7', 'pos8', 'pos9'] }], rows.length)) };
+    var foot = makeFooter(rows, [{ parentKey: 'area0', cols: ['pos0', 'pos1', 'pos2', 'pos3'] }, { parentKey: 'area1', cols: ['pos4', 'pos5', 'pos6'] }, { parentKey: 'area2', cols: ['pos7', 'pos8', 'pos9'] }],
+      function (n) { var s = {}; n.forEach(function (d) { s['pos' + d] = 1; }); return Object.keys(s); }, N);
+    return { items: items.concat(foot) };
   }
 
-  /* 和值 0-27 (子字段 sum0..sum27) */
-  function gridHeZhi(rows) {
-    var miss = new Array(28).fill(0);
+  /* 和值 0-27（红方） */
+  function gridHeZhi(rows, N) {
     var items = rows.map(function (d) {
-      var s = d.n[0] + d.n[1] + d.n[2], hz = {};
-      for (var c = 0; c < 28; c++) { var hit = c === s; if (hit) { hz['sum' + c] = ball('block0', c); miss[c] = 0; } else { miss[c]++; hz['sum' + c] = miss[c]; } }
-      return { qiHao: d.issue, lottery: d.n.join(' '), sum: s, sumTail: s % 10, heZhi: hz };
+      var s = d.n[0] + d.n[1] + d.n[2], hz = {}; for (var c = 0; c < 28; c++) hz['sum' + c] = c === s ? mk('block0', c, false, '#e60000') : '';
+      return { qiHao: q(d), lottery: d.n.join(' '), sum: s, sumTail: s % 10, heZhi: hz };
     });
     var cols = []; for (var c = 0; c < 28; c++) cols.push('sum' + c);
-    return { items: items.concat(computeFoot(items, [{ parentKey: 'heZhi', cols: cols }], rows.length)) };
+    return { items: items.concat(makeFooter(rows, [{ parentKey: 'heZhi', cols: cols }], function (n) { return ['sum' + (n[0] + n[1] + n[2])]; }, N)) };
   }
 
-  /* 跨度 0-9 */
-  function gridSpan(rows) {
-    var miss = new Array(10).fill(0);
+  /* 跨度 0-9（红方） */
+  function gridSpan(rows, N) {
     var items = rows.map(function (d) {
-      var mx = Math.max.apply(null, d.n), mn = Math.min.apply(null, d.n), sp = mx - mn, sd = {};
-      for (var c = 0; c < 10; c++) { var hit = c === sp; if (hit) { sd['span' + c] = ball('block0', c); miss[c] = 0; } else { miss[c]++; sd['span' + c] = miss[c]; } }
-      return { qiHao: d.issue, lottery: d.n.join(' '), kuaDu: sp, maxMin: { minNum: mn, maxNum: mx }, lingHaoLag: '', span: sd };
+      var mx = Math.max.apply(null, d.n), mn = Math.min.apply(null, d.n), sp = mx - mn, sd = {}; for (var c = 0; c < 10; c++) sd['span' + c] = c === sp ? mk('block0', c, false, '#e60000') : '';
+      return { qiHao: q(d), lottery: d.n.join(' '), kuaDu: sp, maxMin: { minNum: mn, maxNum: mx }, lingHaoLag: '', span: sd };
     });
     var cols = []; for (var c = 0; c < 10; c++) cols.push('span' + c);
-    return { items: items.concat(computeFoot(items, [{ parentKey: 'span', cols: cols }], rows.length)) };
+    return { items: items.concat(makeFooter(rows, [{ parentKey: 'span', cols: cols }], function (n) { return ['span' + (Math.max.apply(null, n) - Math.min.apply(null, n))]; }, N)) };
   }
 
-  /* 012路/三区 定位 */
-  function gridLu(rows, kind) {
+  /* 012路/三区 定位（百红 十绿 个蓝 方块） */
+  function gridLu(rows, kind, N) {
     var fn = kind === 'threeAreaD' ? zoneIdx : road;
-    var miss = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    var colors = ['#e60000', '#0a9b34', '#1565d8'];
     var items = rows.map(function (d) {
-      var o = { qiHao: d.issue, lottery: d.n.join(' '), rate: ratioCounts(d.n, fn).join(':'), array: d.n.map(fn).join('-') };
-      [0, 1, 2].forEach(function (p) {
-        var val = fn(d.n[p]), cell = {};
-        for (var c = 0; c < 3; c++) { var hit = c === val; if (hit) { cell['pos' + p + c] = ball('block' + p, c); miss[p][c] = 0; } else { miss[p][c]++; cell['pos' + p + c] = miss[p][c]; } }
-        o['pos' + p] = cell;
-      });
+      var o = { qiHao: q(d), lottery: d.n.join(' '), rate: (function () { var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; }); return c.join(':'); })(), array: d.n.map(fn).join('') };
+      [0, 1, 2].forEach(function (p) { var val = fn(d.n[p]), cell = {}; for (var c = 0; c < 3; c++) cell['pos' + p + c] = c === val ? mk('block' + p, c, false, colors[p]) : ''; o['pos' + p] = cell; });
       return o;
     });
     var groups = [0, 1, 2].map(function (p) { return { parentKey: 'pos' + p, cols: ['pos' + p + 0, 'pos' + p + 1, 'pos' + p + 2] }; });
-    return { items: items.concat(computeFoot(items, groups, rows.length)) };
+    return { items: items.concat(makeFooter(rows, groups, function (n) { return ['pos0' + fn(n[0]), 'pos1' + fn(n[1]), 'pos2' + fn(n[2])]; }, N)) };
   }
 
-  /* 大小/奇偶/质合：rate(4) + paiWei(8) + pW */
-  function gridBsOeZh(rows, idx) {
+  /* 大小/奇偶/质合：rate(4)+paiWei(8) 红"是" */
+  function gridBsOeZh(rows, idx, N) {
     var pred = predOf(idx), ch = charOf(idx);
-    var rateCode = ["3", "12", "21", "30"];               // k=0,1,2,3
-    var order = [0, 1, 10, 100, 11, 101, 110, 111];
-    var missR = {}, missP = {};
-    rateCode.forEach(function (rc) { missR[rc] = 0; }); order.forEach(function (ov) { missP[ov] = 0; });
+    var rateCode = ["3", "12", "21", "30"], order = [0, 1, 10, 100, 11, 101, 110, 111];
     var items = rows.map(function (d) {
       var k = d.n.reduce(function (a, v) { return a + (pred(v) ? 1 : 0); }, 0);
       var pv = (pred(d.n[0]) ? 100 : 0) + (pred(d.n[1]) ? 10 : 0) + (pred(d.n[2]) ? 1 : 0);
       var rate = {}, paiWei = {};
-      rateCode.forEach(function (rc, i) { var hit = i === k; if (hit) { rate[idx + 'Rate' + rc] = ball('block0', '0:3 1:2 2:1 3:0'.split(' ')[i]); missR[rc] = 0; } else { missR[rc]++; rate[idx + 'Rate' + rc] = missR[rc]; } });
-      order.forEach(function (ov) { var hit = ov === pv; if (hit) { paiWei[idx + ov] = ball('block1', d.n.map(ch).join('')); missP[ov] = 0; } else { missP[ov]++; paiWei[idx + ov] = missP[ov]; } });
-      return { qiHao: d.issue, lottery: d.n.join(' '), pW: d.n.map(ch).join(''), rate: rate, paiWei: paiWei };
+      rateCode.forEach(function (rc, i) { rate[idx + 'Rate' + rc] = i === k ? mk('block0', '是', false, '#e60000') : ''; });
+      order.forEach(function (ov) { paiWei[idx + ov] = ov === pv ? mk('block1', '是', false, '#e60000') : ''; });
+      return { qiHao: q(d), lottery: d.n.join(' '), pW: d.n.map(ch).join(''), rate: rate, paiWei: paiWei };
     });
     var groups = [{ parentKey: 'rate', cols: rateCode.map(function (rc) { return idx + 'Rate' + rc; }) }, { parentKey: 'paiWei', cols: order.map(function (ov) { return idx + ov; }) }];
-    return { items: items.concat(computeFoot(items, groups, rows.length)) };
+    var hit = function (n) { var k = n.reduce(function (a, v) { return a + (pred(v) ? 1 : 0); }, 0); var pv = (pred(n[0]) ? 100 : 0) + (pred(n[1]) ? 10 : 0) + (pred(n[2]) ? 1 : 0); return [idx + 'Rate' + rateCode[k], idx + pv]; };
+    return { items: items.concat(makeFooter(rows, groups, hit, N)) };
   }
 
-  /* 012路比/三区比：rate(10) + v */
-  function gridLuRate(rows, idx) {
+  /* 012路比/三区比：rate(10) 红"是" */
+  function gridLuRate(rows, idx, N) {
     var fn = idx === 'threeAreaRate' ? zoneIdx : road;
     var value = [3, 12, 21, 30, 102, 111, 120, 201, 210, 300];
-    var text = ["0:0:3", "0:1:2", "0:2:1", "0:3:0", "1:0:2", "1:1:1", "1:2:0", "2:0:1", "2:1:0", "3:0:0"];
-    var miss = {}; value.forEach(function (v) { miss[v] = 0; });
+    function code(n) { var c = [0, 0, 0]; n.forEach(function (v) { c[fn(v)]++; }); return c[0] * 100 + c[1] * 10 + c[2]; }
     var items = rows.map(function (d) {
-      var c = ratioCounts(d.n, fn), code = c[0] * 100 + c[1] * 10 + c[2], rate = {};
-      value.forEach(function (v, i) { var hit = v === code; if (hit) { rate[idx + v] = ball('block0', text[i]); miss[v] = 0; } else { miss[v]++; rate[idx + v] = miss[v]; } });
-      return { qiHao: d.issue, lottery: d.n.join(' '), v: c.join(':'), rate: rate };
+      var cd = code(d.n), rate = {}; value.forEach(function (v) { rate[idx + v] = v === cd ? mk('block0', '是', false, '#e60000') : ''; });
+      var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; });
+      return { qiHao: q(d), lottery: d.n.join(' '), v: c.join(':'), rate: rate };
     });
     var groups = [{ parentKey: 'rate', cols: value.map(function (v) { return idx + v; }) }];
-    return { items: items.concat(computeFoot(items, groups, rows.length)) };
+    return { items: items.concat(makeFooter(rows, groups, function (n) { return [idx + code(n)]; }, N)) };
   }
 
-  /* 综合 */
+  /* 综合（无页脚） */
   function tableBase(rows) {
     return { items: rows.map(function (d) {
       function r(pred) { var k = d.n.reduce(function (a, v) { return a + (pred(v) ? 1 : 0); }, 0); return k + ':' + (3 - k); }
-      return { qiHao: d.issue, lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) },
-        sum: d.n[0] + d.n[1] + d.n[2], span: Math.max.apply(null, d.n) - Math.min.apply(null, d.n),
-        shapeRate: { bigSmallRate: r(function (v) { return v >= 5; }), oddEvenRate: r(function (v) { return v % 2; }), zhiHeRate: r(function (v) { return PRIMES[v]; }), luShuRate: ratioCounts(d.n, road).join(':'), threeAreaRate: ratioCounts(d.n, zoneIdx).join(':') } };
+      function rr(fn) { var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; }); return c.join(':'); }
+      return { qiHao: q(d), lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) }, sum: d.n[0] + d.n[1] + d.n[2], span: Math.max.apply(null, d.n) - Math.min.apply(null, d.n),
+        shapeRate: { bigSmallRate: r(function (v) { return v >= 5; }), oddEvenRate: r(function (v) { return v % 2; }), zhiHeRate: r(function (v) { return PRIMES[v]; }), luShuRate: rr(road), threeAreaRate: rr(zoneIdx) } };
     }) };
   }
 
-  /* 形态 */
-  function tableXingTai(rows) {
+  /* 形态（红"是"） */
+  function tableXingTai(rows, N) {
     var items = rows.map(function (d) {
-      var sh = shapeOf(d.n), s = d.n.slice().sort(function (a, b) { return a - b; });
-      var lian = (s[1] - s[0] === 1 && s[2] - s[1] === 1) ? '3连' : (s[1] - s[0] === 1 || s[2] - s[1] === 1) ? '2连' : '不连';
-      return { qiHao: d.issue, lottery: d.n.join(' '), xingTai: sh,
-        xt: { zuSan: sh === '组三' ? '●' : '', zuLiu: sh === '组六' ? '●' : '', baoZi: sh === '豹子' ? '●' : '' },
-        lh: lian, lianHao: { lian0: lian === '不连' ? '●' : '', lian2: lian === '2连' ? '●' : '', lian3: lian === '3连' ? '●' : '' } };
+      var sh = shapeOf(d.n), lian = lianOf(d.n);
+      return { qiHao: q(d), lottery: d.n.join(' '), xingTai: sh,
+        xt: { zuSan: sh === '组三' ? mk('', '是', false, '#e60000') : '', zuLiu: sh === '组六' ? mk('', '是', false, '#e60000') : '', baoZi: sh === '豹子' ? mk('', '是', false, '#e60000') : '' },
+        lh: lian === 'lian3' ? '3连' : lian === 'lian2' ? '2连' : '不连',
+        lianHao: { lian0: lian === 'lian0' ? mk('', '是', false, '#e60000') : '', lian2: lian === 'lian2' ? mk('', '是', false, '#e60000') : '', lian3: lian === 'lian3' ? mk('', '是', false, '#e60000') : '' } };
     });
-    return { items: items.concat(computeFoot(items, [{ parentKey: 'xt', cols: ['zuSan', 'zuLiu', 'baoZi'] }, { parentKey: 'lianHao', cols: ['lian0', 'lian2', 'lian3'] }], rows.length)) };
+    var hit = function (n) { var sh = shapeOf(n); return [sh === '组三' ? 'zuSan' : sh === '组六' ? 'zuLiu' : 'baoZi', lianOf(n)]; };
+    return { items: items.concat(makeFooter(rows, [{ parentKey: 'xt', cols: ['zuSan', 'zuLiu', 'baoZi'] }, { parentKey: 'lianHao', cols: ['lian0', 'lian2', 'lian3'] }], hit, N)) };
   }
 
-  /* 万能 N 码 */
-  function tableW(rows, idx) {
+  /* 万能码（绿"是"） */
+  function tableW(rows, idx, N) {
     var combos = W[idx];
+    function covered(n, cb) { var set = {}; n.forEach(function (v) { set[v] = 1; }); return Object.keys(set).every(function (x) { return cb.indexOf(x) !== -1; }); }
     var items = rows.map(function (d) {
-      var set = {}; d.n.forEach(function (v) { set[v] = 1; });
-      var cell = {};
-      combos.forEach(function (cb) { var cover = Object.keys(set).every(function (x) { return cb.indexOf(x) !== -1; }); cell['w' + cb] = cover ? ball('', '中') : ''; });
-      var o = { qiHao: d.issue, lottery: d.n.join(' ') }; o[idx] = cell; return o;
+      var cell = {}; combos.forEach(function (cb) { cell['w' + cb] = covered(d.n, cb) ? mk('', '是', false, '#0a9b34') : ''; });
+      var o = { qiHao: q(d), lottery: d.n.join(' ') }; o[idx] = cell; return o;
     });
-    return { items: items.concat(computeFoot(items, [{ parentKey: idx, cols: combos.map(function (cb) { return 'w' + cb; }) }], rows.length)) };
+    return { items: items.concat(makeFooter(rows, [{ parentKey: idx, cols: combos.map(function (cb) { return 'w' + cb; }) }], function (n) { return combos.filter(function (cb) { return covered(n, cb); }).map(function (cb) { return 'w' + cb; }); }, N)) };
   }
 
-  /* 其它 */
+  /* 其它（无页脚） */
   function tableOther(rows) {
     return { items: rows.map(function (d) {
       var distinct = {}; d.n.forEach(function (v) { distinct[v] = 1; });
-      return { qiHao: d.issue, lottery: d.n.join(' '),
-        erMa: { erMa: d.n.join(''), he: [d.n[0] + d.n[1], d.n[0] + d.n[2], d.n[1] + d.n[2]].join(' '), cha: [Math.abs(d.n[0] - d.n[1]), Math.abs(d.n[0] - d.n[2]), Math.abs(d.n[1] - d.n[2])].join(' ') },
-        acValue: acOf(d.n), average: ((d.n[0] + d.n[1] + d.n[2]) / 3).toFixed(1), lianHao: '', differNum: Object.keys(distinct).length };
+      return { qiHao: q(d), lottery: d.n.join(' '), erMa: { erMa: d.n.join(''), he: [d.n[0] + d.n[1], d.n[0] + d.n[2], d.n[1] + d.n[2]].join(' '), cha: [Math.abs(d.n[0] - d.n[1]), Math.abs(d.n[0] - d.n[2]), Math.abs(d.n[1] - d.n[2])].join(' ') }, acValue: (function () { var s = {}; for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) { var x = Math.abs(d.n[i] - d.n[j]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })(), average: ((d.n[0] + d.n[1] + d.n[2]) / 3).toFixed(1), lianHao: '', differNum: Object.keys(distinct).length };
     }) };
   }
 
   function build(index, rowNumber) {
     return drawsPromise.then(function (all) {
-      var rows = rowNumber > 0 ? all.slice(Math.max(0, all.length - rowNumber)) : all, r;
+      var N = rowNumber > 0 ? rowNumber : all.length;
+      var rows = all.slice(Math.max(0, all.length - N)); N = rows.length;
+      var r;
       if (index === 'base') r = tableBase(rows);
-      else if (index === 'numDistri') r = gridNumDistri(rows);
-      else if (index === 'pos0') r = gridPos(rows, 0);
-      else if (index === 'pos1') r = gridPos(rows, 1);
-      else if (index === 'pos2') r = gridPos(rows, 2);
-      else if (index === 'heZhi') r = gridHeZhi(rows);
-      else if (index === 'span') r = gridSpan(rows);
-      else if (index === 'luShuD' || index === 'luShu') r = gridLu(rows, 'luShuD');
-      else if (index === 'threeAreaD' || index === 'threeArea') r = gridLu(rows, 'threeAreaD');
-      else if (index === 'bigSmall' || index === 'oddEven' || index === 'zhiHe') r = gridBsOeZh(rows, index);
-      else if (index === 'luShuRate' || index === 'threeAreaRate') r = gridLuRate(rows, index);
-      else if (index === 'xingTai') r = tableXingTai(rows);
-      else if (index === 'w5' || index === 'w6' || index === 'w7') r = tableW(rows, index);
+      else if (index === 'numDistri') r = gridNumDistri(rows, N);
+      else if (index === 'pos0') r = gridPos(rows, 0, N);
+      else if (index === 'pos1') r = gridPos(rows, 1, N);
+      else if (index === 'pos2') r = gridPos(rows, 2, N);
+      else if (index === 'heZhi') r = gridHeZhi(rows, N);
+      else if (index === 'span') r = gridSpan(rows, N);
+      else if (index === 'luShuD' || index === 'luShu') r = gridLu(rows, 'luShuD', N);
+      else if (index === 'threeAreaD' || index === 'threeArea') r = gridLu(rows, 'threeAreaD', N);
+      else if (index === 'bigSmall' || index === 'oddEven' || index === 'zhiHe') r = gridBsOeZh(rows, index, N);
+      else if (index === 'luShuRate' || index === 'threeAreaRate') r = gridLuRate(rows, index, N);
+      else if (index === 'xingTai') r = tableXingTai(rows, N);
+      else if (index === 'w5' || index === 'w6' || index === 'w7') r = tableW(rows, index, N);
       else r = tableOther(rows);
-      r.index = index; r.lotteryCategory = 'Magic3_Fc3D';
-      r.width = document.body.clientWidth; r.height = document.documentElement.clientHeight;
+      r.index = index; r.lotteryCategory = 'Magic3_Fc3D'; r.width = document.body.clientWidth; r.height = document.documentElement.clientHeight;
       return r;
     });
   }
@@ -239,9 +203,7 @@
   function install() {
     if (typeof HttpUtils === 'undefined') { setTimeout(install, 30); return; }
     HttpUtils.ajaxHttpGet = function (url, param, callBack) {
-      if (String(url).indexOf('getTrend') !== -1) {
-        build(param.index, Number(param.rowNumber) || 30).then(function (json) { json.fromCache = false; callBack(json, 'success', null); });
-      }
+      if (String(url).indexOf('getTrend') !== -1) { build(param.index, Number(param.rowNumber) || 30).then(function (json) { json.fromCache = false; callBack(json, 'success', null); }); }
     };
   }
   install();
