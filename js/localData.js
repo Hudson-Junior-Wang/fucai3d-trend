@@ -184,12 +184,13 @@
       var n = d.n;
       var distinct = {}; n.forEach(function (v) { distinct[v] = 1; });
       var uniq = Object.keys(distinct).map(Number).sort(function (a, b) { return a - b; });
-      var lian = 0; for (var i = 1; i < uniq.length; i++) if (uniq[i] - uniq[i - 1] === 1) lian++;
+      var maxRun = 1, cur = 1; for (var i = 1; i < uniq.length; i++) { if (uniq[i] - uniq[i - 1] === 1) { cur++; if (cur > maxRun) maxRun = cur; } else cur = 1; }
+      var lianStr = ['一连', '二连', '三连'][maxRun - 1];
       var ac = (function () { var s = {}; for (var a = 0; a < 3; a++) for (var b = a + 1; b < 3; b++) { var x = Math.abs(n[a] - n[b]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })();
       return {
         qiHao: q(d), lottery: lot(n),
         acValue: ac, average: ((n[0] + n[1] + n[2]) / 3).toFixed(1),
-        lianHao: lian, differNum: uniq.length,
+        lianHao: lianStr, differNum: uniq.length,
         erMa: { erMa01: '' + n[0] + n[1], erMa02: '' + n[0] + n[2], erMa12: '' + n[1] + n[2] },
         erWeiHe: { he01: n[0] + n[1], he02: n[0] + n[2], he12: n[1] + n[2] },
         erWeiCha: { cha01: Math.abs(n[0] - n[1]), cha02: Math.abs(n[0] - n[2]), cha12: Math.abs(n[1] - n[2]) }
