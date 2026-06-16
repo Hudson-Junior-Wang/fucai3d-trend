@@ -18,6 +18,15 @@
   function zh(v) { return PRIMES[v] ? '质' : '合'; }
   function predOf(i) { return i === 'bigSmall' ? function (v) { return v >= 5 ? 1 : 0; } : i === 'oddEven' ? function (v) { return v % 2; } : function (v) { return PRIMES[v] ? 1 : 0; }; }
   function charOf(i) { return i === 'bigSmall' ? bs : i === 'oddEven' ? oe : zh; }
+  function clr(t, c) { return "<span style='color:" + c + "'>" + t + "</span>"; }
+  function lot(n) { return clr(n.join(' '), '#d40000'); }
+  function shapeC(n) { var s = shapeOf(n); return s === '豹子' ? clr(s, '#d40000') : s === '组三' ? clr(s, '#e8730c') : s; }
+  function bsC(v) { return v >= 5 ? clr('大', '#e53935') : clr('小', '#1565d8'); }
+  function oeC(v) { return v % 2 ? clr('奇', '#e53935') : clr('偶', '#1565d8'); }
+  function zhC(v) { return PRIMES[v] ? clr('质', '#e53935') : clr('合', '#1565d8'); }
+  function roadC(v) { var r = road(v); return clr(r, ['#5c6bc0', '#e53935', '#43a047'][r]); }
+  function zoneC(v) { var z = zoneIdx(v); return clr(z + 1, ['#e53935', '#fb8c00', '#43a047'][z]); }
+  function lianHaoMaxGap(n) { var s = n.slice().sort(function (a, b) { return a - b; }); return Math.max(s[1] - s[0], s[2] - s[1]); }
   function shapeOf(n) { if (n[0] === n[1] && n[1] === n[2]) return '豹子'; if (n[0] === n[1] || n[1] === n[2] || n[0] === n[2]) return '组三'; return '组六'; }
   function sameNumOf(n) { if (n[0] === n[1] && n[1] === n[2]) return '' + n[0]; if (n[0] === n[1] || n[0] === n[2]) return '' + n[0]; if (n[1] === n[2]) return '' + n[1]; return '-'; }
   function lianOf(n) { var s = n.slice().sort(function (a, b) { return a - b; }); return (s[1] - s[0] === 1 && s[2] - s[1] === 1) ? 'lian3' : (s[1] - s[0] === 1 || s[2] - s[1] === 1) ? 'lian2' : 'lian0'; }
@@ -53,7 +62,7 @@
   function gridPos(rows, P, N) {
     var items = rows.map(function (d) {
       var pos = {}; for (var c = 0; c < 10; c++) pos['pos' + P + c] = c === d.n[P] ? mk('block0', c, true, '#e60000') : '';
-      return { qiHao: q(d), lottery: d.n.join(' '), weiLot: d.n[P], pos: pos, character: { bigSmall: d.n.map(bs).join(''), oddEven: d.n.map(oe).join(''), zhiHe: d.n.map(zh).join(''), luShu: d.n.map(road).join(''), threeArea: d.n.map(function (v) { return zoneIdx(v) + 1; }).join('') }, _p: P };
+      return { qiHao: q(d), lottery: lot(d.n), weiLot: d.n[P], pos: pos, character: { bigSmall: bsC(d.n[P]), oddEven: oeC(d.n[P]), zhiHe: zhC(d.n[P]), luShu: roadC(d.n[P]), threeArea: zoneC(d.n[P]) }, _p: P };
     }).map(function (o) { var x = { qiHao: o.qiHao, lottery: o.lottery, weiLot: o.weiLot, character: o.character }; x['pos' + o._p] = o.pos; return x; });
     var cols = []; for (var c = 0; c < 10; c++) cols.push('pos' + P + c);
     return { items: items.concat(makeFooter(rows, [{ parentKey: 'pos' + P, cols: cols }], function (n) { return ['pos' + P + n[P]]; }, N)) };
@@ -63,7 +72,7 @@
   function gridNumDistri(rows, N) {
     var items = rows.map(function (d) {
       var cell = {}; for (var c = 0; c < 10; c++) cell['pos' + c] = d.n.indexOf(c) !== -1 ? mk('', c, true, '#e60000') : '';
-      return { qiHao: q(d), lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) }, area0: { pos0: cell.pos0, pos1: cell.pos1, pos2: cell.pos2, pos3: cell.pos3 }, area1: { pos4: cell.pos4, pos5: cell.pos5, pos6: cell.pos6 }, area2: { pos7: cell.pos7, pos8: cell.pos8, pos9: cell.pos9 } };
+      return { qiHao: q(d), lottery: lot(d.n), shape: { shape: shapeC(d.n), sameNum: sameNumOf(d.n) }, area0: { pos0: cell.pos0, pos1: cell.pos1, pos2: cell.pos2, pos3: cell.pos3 }, area1: { pos4: cell.pos4, pos5: cell.pos5, pos6: cell.pos6 }, area2: { pos7: cell.pos7, pos8: cell.pos8, pos9: cell.pos9 } };
     });
     var foot = makeFooter(rows, [{ parentKey: 'area0', cols: ['pos0', 'pos1', 'pos2', 'pos3'] }, { parentKey: 'area1', cols: ['pos4', 'pos5', 'pos6'] }, { parentKey: 'area2', cols: ['pos7', 'pos8', 'pos9'] }],
       function (n) { var s = {}; n.forEach(function (d) { s['pos' + d] = 1; }); return Object.keys(s); }, N);
@@ -74,7 +83,7 @@
   function gridHeZhi(rows, N) {
     var items = rows.map(function (d) {
       var s = d.n[0] + d.n[1] + d.n[2], hz = {}; for (var c = 0; c < 28; c++) hz['sum' + c] = c === s ? mk('block0', c, false, '#e60000') : '';
-      return { qiHao: q(d), lottery: d.n.join(' '), sum: s, sumTail: s % 10, heZhi: hz };
+      return { qiHao: q(d), lottery: lot(d.n), sum: s, sumTail: s % 10, heZhi: hz };
     });
     var cols = []; for (var c = 0; c < 28; c++) cols.push('sum' + c);
     return { items: items.concat(makeFooter(rows, [{ parentKey: 'heZhi', cols: cols }], function (n) { return ['sum' + (n[0] + n[1] + n[2])]; }, N)) };
@@ -84,7 +93,7 @@
   function gridSpan(rows, N) {
     var items = rows.map(function (d) {
       var mx = Math.max.apply(null, d.n), mn = Math.min.apply(null, d.n), sp = mx - mn, sd = {}; for (var c = 0; c < 10; c++) sd['span' + c] = c === sp ? mk('block0', c, false, '#e60000') : '';
-      return { qiHao: q(d), lottery: d.n.join(' '), kuaDu: sp, maxMin: { minNum: mn, maxNum: mx }, lingHaoLag: '', span: sd };
+      return { qiHao: q(d), lottery: lot(d.n), kuaDu: sp, maxMin: { minNum: mn, maxNum: mx }, lingHaoLag: lianHaoMaxGap(d.n), span: sd };
     });
     var cols = []; for (var c = 0; c < 10; c++) cols.push('span' + c);
     return { items: items.concat(makeFooter(rows, [{ parentKey: 'span', cols: cols }], function (n) { return ['span' + (Math.max.apply(null, n) - Math.min.apply(null, n))]; }, N)) };
@@ -95,7 +104,7 @@
     var fn = kind === 'threeAreaD' ? zoneIdx : road;
     var colors = ['#e60000', '#0a9b34', '#1565d8'];
     var items = rows.map(function (d) {
-      var o = { qiHao: q(d), lottery: d.n.join(' '), rate: (function () { var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; }); return c.join(':'); })(), array: d.n.map(fn).join('') };
+      var o = { qiHao: q(d), lottery: lot(d.n), rate: (function () { var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; }); return c.join(':'); })(), array: d.n.map(function (v) { return kind === 'threeAreaD' ? (fn(v) + 1) : fn(v); }).join('') };
       [0, 1, 2].forEach(function (p) { var val = fn(d.n[p]), cell = {}; for (var c = 0; c < 3; c++) cell['pos' + p + c] = c === val ? mk('block' + p, c, false, colors[p]) : ''; o['pos' + p] = cell; });
       return o;
     });
@@ -112,8 +121,9 @@
       var pv = (pred(d.n[0]) ? 100 : 0) + (pred(d.n[1]) ? 10 : 0) + (pred(d.n[2]) ? 1 : 0);
       var rate = {}, paiWei = {};
       rateCode.forEach(function (rc, i) { rate[idx + 'Rate' + rc] = i === k ? mk('block0', '是', false, '#e60000') : ''; });
-      order.forEach(function (ov) { paiWei[idx + ov] = ov === pv ? mk('block1', '是', false, '#e60000') : ''; });
-      return { qiHao: q(d), lottery: d.n.join(' '), pW: d.n.map(ch).join(''), rate: rate, paiWei: paiWei };
+      order.forEach(function (ov) { paiWei[idx + ov] = ov === pv ? mk('block1', '是', false, '#0a9b34') : ''; });
+      var pwc = idx === 'bigSmall' ? bsC : idx === 'oddEven' ? oeC : zhC;
+      return { qiHao: q(d), lottery: lot(d.n), pW: d.n.map(pwc).join(''), rate: rate, paiWei: paiWei };
     });
     var groups = [{ parentKey: 'rate', cols: rateCode.map(function (rc) { return idx + 'Rate' + rc; }) }, { parentKey: 'paiWei', cols: order.map(function (ov) { return idx + ov; }) }];
     var hit = function (n) { var k = n.reduce(function (a, v) { return a + (pred(v) ? 1 : 0); }, 0); var pv = (pred(n[0]) ? 100 : 0) + (pred(n[1]) ? 10 : 0) + (pred(n[2]) ? 1 : 0); return [idx + 'Rate' + rateCode[k], idx + pv]; };
@@ -128,7 +138,7 @@
     var items = rows.map(function (d) {
       var cd = code(d.n), rate = {}; value.forEach(function (v) { rate[idx + v] = v === cd ? mk('block0', '是', false, '#e60000') : ''; });
       var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; });
-      return { qiHao: q(d), lottery: d.n.join(' '), v: c.join(':'), rate: rate };
+      return { qiHao: q(d), lottery: lot(d.n), v: c.join(':'), rate: rate };
     });
     var groups = [{ parentKey: 'rate', cols: value.map(function (v) { return idx + v; }) }];
     return { items: items.concat(makeFooter(rows, groups, function (n) { return [idx + code(n)]; }, N)) };
@@ -139,7 +149,7 @@
     return { items: rows.map(function (d) {
       function r(pred) { var k = d.n.reduce(function (a, v) { return a + (pred(v) ? 1 : 0); }, 0); return k + ':' + (3 - k); }
       function rr(fn) { var c = [0, 0, 0]; d.n.forEach(function (v) { c[fn(v)]++; }); return c.join(':'); }
-      return { qiHao: q(d), lottery: d.n.join(' '), shape: { shape: shapeOf(d.n), sameNum: sameNumOf(d.n) }, sum: d.n[0] + d.n[1] + d.n[2], span: Math.max.apply(null, d.n) - Math.min.apply(null, d.n),
+      return { qiHao: q(d), lottery: lot(d.n), shape: { shape: shapeC(d.n), sameNum: sameNumOf(d.n) }, sum: d.n[0] + d.n[1] + d.n[2], span: Math.max.apply(null, d.n) - Math.min.apply(null, d.n),
         shapeRate: { bigSmallRate: r(function (v) { return v >= 5; }), oddEvenRate: r(function (v) { return v % 2; }), zhiHeRate: r(function (v) { return PRIMES[v]; }), luShuRate: rr(road), threeAreaRate: rr(zoneIdx) } };
     }) };
   }
@@ -148,7 +158,7 @@
   function tableXingTai(rows, N) {
     var items = rows.map(function (d) {
       var sh = shapeOf(d.n), lian = lianOf(d.n);
-      return { qiHao: q(d), lottery: d.n.join(' '), xingTai: sh,
+      return { qiHao: q(d), lottery: lot(d.n), xingTai: sh,
         xt: { zuSan: sh === '组三' ? mk('', '是', false, '#e60000') : '', zuLiu: sh === '组六' ? mk('', '是', false, '#e60000') : '', baoZi: sh === '豹子' ? mk('', '是', false, '#e60000') : '' },
         lh: lian === 'lian3' ? '3连' : lian === 'lian2' ? '2连' : '不连',
         lianHao: { lian0: lian === 'lian0' ? mk('', '是', false, '#e60000') : '', lian2: lian === 'lian2' ? mk('', '是', false, '#e60000') : '', lian3: lian === 'lian3' ? mk('', '是', false, '#e60000') : '' } };
@@ -163,7 +173,7 @@
     function covered(n, cb) { var set = {}; n.forEach(function (v) { set[v] = 1; }); return Object.keys(set).every(function (x) { return cb.indexOf(x) !== -1; }); }
     var items = rows.map(function (d) {
       var cell = {}; combos.forEach(function (cb) { cell['w' + cb] = covered(d.n, cb) ? mk('', '是', false, '#0a9b34') : ''; });
-      var o = { qiHao: q(d), lottery: d.n.join(' ') }; o[idx] = cell; return o;
+      var o = { qiHao: q(d), lottery: lot(d.n) }; o[idx] = cell; return o;
     });
     return { items: items.concat(makeFooter(rows, [{ parentKey: idx, cols: combos.map(function (cb) { return 'w' + cb; }) }], function (n) { return combos.filter(function (cb) { return covered(n, cb); }).map(function (cb) { return 'w' + cb; }); }, N)) };
   }
@@ -172,7 +182,7 @@
   function tableOther(rows) {
     return { items: rows.map(function (d) {
       var distinct = {}; d.n.forEach(function (v) { distinct[v] = 1; });
-      return { qiHao: q(d), lottery: d.n.join(' '), erMa: { erMa: d.n.join(''), he: [d.n[0] + d.n[1], d.n[0] + d.n[2], d.n[1] + d.n[2]].join(' '), cha: [Math.abs(d.n[0] - d.n[1]), Math.abs(d.n[0] - d.n[2]), Math.abs(d.n[1] - d.n[2])].join(' ') }, acValue: (function () { var s = {}; for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) { var x = Math.abs(d.n[i] - d.n[j]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })(), average: ((d.n[0] + d.n[1] + d.n[2]) / 3).toFixed(1), lianHao: '', differNum: Object.keys(distinct).length };
+      return { qiHao: q(d), lottery: lot(d.n), erMa: { erMa: d.n.join(''), he: [d.n[0] + d.n[1], d.n[0] + d.n[2], d.n[1] + d.n[2]].join(' '), cha: [Math.abs(d.n[0] - d.n[1]), Math.abs(d.n[0] - d.n[2]), Math.abs(d.n[1] - d.n[2])].join(' ') }, acValue: (function () { var s = {}; for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) { var x = Math.abs(d.n[i] - d.n[j]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })(), average: ((d.n[0] + d.n[1] + d.n[2]) / 3).toFixed(1), lianHao: '', differNum: Object.keys(distinct).length };
     }) };
   }
 
