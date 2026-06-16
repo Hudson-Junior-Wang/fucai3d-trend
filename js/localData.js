@@ -178,11 +178,22 @@
     return { items: items.concat(makeFooter(rows, [{ parentKey: idx, cols: combos.map(function (cb) { return 'w' + cb; }) }], function (n) { return combos.filter(function (cb) { return covered(n, cb); }).map(function (cb) { return 'w' + cb; }); }, N)) };
   }
 
-  /* 其它（无页脚） */
+  /* 其它（无页脚）：二码/二位和/二位差(百十·百个·十个) + ac值/平均值/连号/0-9开出 */
   function tableOther(rows) {
     return { items: rows.map(function (d) {
-      var distinct = {}; d.n.forEach(function (v) { distinct[v] = 1; });
-      return { qiHao: q(d), lottery: lot(d.n), erMa: { erMa: d.n.join(''), he: [d.n[0] + d.n[1], d.n[0] + d.n[2], d.n[1] + d.n[2]].join(' '), cha: [Math.abs(d.n[0] - d.n[1]), Math.abs(d.n[0] - d.n[2]), Math.abs(d.n[1] - d.n[2])].join(' ') }, acValue: (function () { var s = {}; for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) { var x = Math.abs(d.n[i] - d.n[j]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })(), average: ((d.n[0] + d.n[1] + d.n[2]) / 3).toFixed(1), lianHao: '', differNum: Object.keys(distinct).length };
+      var n = d.n;
+      var distinct = {}; n.forEach(function (v) { distinct[v] = 1; });
+      var uniq = Object.keys(distinct).map(Number).sort(function (a, b) { return a - b; });
+      var lian = 0; for (var i = 1; i < uniq.length; i++) if (uniq[i] - uniq[i - 1] === 1) lian++;
+      var ac = (function () { var s = {}; for (var a = 0; a < 3; a++) for (var b = a + 1; b < 3; b++) { var x = Math.abs(n[a] - n[b]); if (x) s[x] = 1; } return Math.max(0, Object.keys(s).length - 2); })();
+      return {
+        qiHao: q(d), lottery: lot(n),
+        acValue: ac, average: ((n[0] + n[1] + n[2]) / 3).toFixed(1),
+        lianHao: lian, differNum: uniq.length,
+        erMa: { erMa01: '' + n[0] + n[1], erMa02: '' + n[0] + n[2], erMa12: '' + n[1] + n[2] },
+        erWeiHe: { he01: n[0] + n[1], he02: n[0] + n[2], he12: n[1] + n[2] },
+        erWeiCha: { cha01: Math.abs(n[0] - n[1]), cha02: Math.abs(n[0] - n[2]), cha12: Math.abs(n[1] - n[2]) }
+      };
     }) };
   }
 
